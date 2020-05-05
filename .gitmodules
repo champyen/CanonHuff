@@ -1,0 +1,6 @@
+[submodule "MinHeap"]
+	path = MinHeap
+	url = https://github.com/champyen/MinHeap.git
+[submodule "bitchain"]
+	path = bitchain
+	url = https://github.com/champyen/bitchain.git
