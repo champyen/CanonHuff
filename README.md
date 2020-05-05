@@ -1,2 +1,2 @@
-# CanonHuff
-Canonical Huffman Coder
+# HuffCoder
+Huffman Coder
