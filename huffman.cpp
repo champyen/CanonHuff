@@ -145,7 +145,7 @@ int main(void)
 
     {
         Bitchain bc("test.bin", true);
-        for(int i = 0; i < 128; i++){
+        for(int i = 0; i < TEST_SIZE; i++){
             uint64_t sym;
             hc.decode(sym, bc);
             if(sym != test_sym[i])
