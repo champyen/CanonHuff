@@ -43,7 +43,8 @@ public:
     HuffCoder& insert(shared_ptr<SymNode>);
     uint32_t getMaxCodeLen(){ return maxLen; }
 
-    //HuffCoder& encode(uint32_t sym, uint32_t &bits, uint32_t &code, bool dep = true);
+    HuffCoder& encode(uint64_t, Bitchain &, bool);
+    HuffCoder& getVLC(uint64_t, uint64_t &, uint64_t&);
     //HuffCoder& decode(uint32_t &sym, uint32_t code, uint32_t &bits, bool dep = true);
 
 private:

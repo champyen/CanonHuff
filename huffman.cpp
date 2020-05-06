@@ -38,6 +38,23 @@ void HuffCoder::makeHuffCode(shared_ptr<SymNode> node, uint64_t bits, uint64_t c
     }
 }
 
+HuffCoder& HuffCoder::encode(uint64_t symbol, Bitchain &bc, bool dep = true)
+{
+	if(dep){
+		shared_ptr<SymNode> node = symtab[symbol];
+		bc.write(node->code, node->bits);
+	}
+	return *this;
+}
+
+HuffCoder& HuffCoder::getVLC(uint64_t symbol, uint64_t &code, uint64_t &bits)
+{
+	shared_ptr<SymNode> node = symtab[symbol];
+	code = node->code;
+	bits = node->bits;
+	return *this;
+}
+
 #ifdef HC_TEST
 #include <stdlib.h>
 #include <time.h>
