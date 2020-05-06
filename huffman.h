@@ -45,6 +45,7 @@ public:
 
     HuffCoder& encode(uint64_t, Bitchain &, bool);
     HuffCoder& getVLC(uint64_t, uint64_t &, uint64_t&);
+    HuffCoder& decode(uint64_t &, Bitchain &, bool);
     //HuffCoder& decode(uint32_t &sym, uint32_t code, uint32_t &bits, bool dep = true);
 
 private:
@@ -53,9 +54,11 @@ private:
     unordered_map<uint64_t, shared_ptr<SymNode>> symtab;
     shared_ptr<MinHeap<SymNode>> heap;
     shared_ptr<SymNode> root;
+    //unordered_map<uint64_t, vector<shared_ptr<SymNode>>> dectab;
+    vector<shared_ptr<SymNode>> dectab;
     int numSymbols = 0;
     int numInserted = 0;
-    int maxLen = 0;
+    uint64_t maxLen = 0;
 };
 
 #endif //_CANONICAL_HUFFMAN_H_
