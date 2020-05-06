@@ -46,7 +46,7 @@ public:
     HuffCoder& encode(uint64_t, Bitchain &, bool);
     HuffCoder& getVLC(uint64_t, uint64_t &, uint64_t&);
     HuffCoder& decode(uint64_t &, Bitchain &, bool);
-    //HuffCoder& decode(uint32_t &sym, uint32_t code, uint32_t &bits, bool dep = true);
+    HuffCoder& getSymbol(uint64_t&, uint64_t, uint64_t &);
 
 private:
     void makeHuffCode(shared_ptr<SymNode>, uint64_t, uint64_t);

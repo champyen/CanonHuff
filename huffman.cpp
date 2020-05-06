@@ -91,6 +91,16 @@ HuffCoder& HuffCoder::decode(uint64_t &symbol, Bitchain &bc, bool dep = true)
     return *this;
 }
 
+HuffCoder& HuffCoder::getSymbol(uint64_t &symbol, uint64_t code, uint64_t &bits)
+{
+    if(code < dectab.size()){
+        shared_ptr<SymNode> node = dectab[code];
+        symbol = node->symbol;
+        bits = node->bits;
+    }
+    return *this;
+}
+
 #ifdef HC_TEST
 #include <stdlib.h>
 #include <time.h>
