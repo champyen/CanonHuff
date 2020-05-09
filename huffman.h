@@ -17,12 +17,16 @@ public:
         uint64_t sym,
         uint64_t freq,
         shared_ptr<SymNode> lnode = nullptr,
-        shared_ptr<SymNode> rnode = nullptr
+        shared_ptr<SymNode> rnode = nullptr,
+        uint64_t len = 0,
+        uint64_t bin = 0
     ){
         symbol = sym;
         kval = freq;
         left = lnode;
         right = rnode;
+        bits = len;
+        code = bin;
     }
 
     ~SymNode() {};
@@ -38,7 +42,12 @@ public:
 class HuffCoder
 {
 public:
-    HuffCoder(int size) { heap = make_shared<MinHeap<SymNode>>(size); numSymbols = size; }
+    HuffCoder(int size) { 
+        heap = make_shared<MinHeap<SymNode>>(size); 
+        numSymbols = size;
+        dummy = make_shared<SymNode>(0, 0);
+        //dectab_0.fill(make_shared<SymNode>(0, 0));
+    }
     ~HuffCoder() {};
     HuffCoder& insert(shared_ptr<SymNode>);
     uint32_t getMaxCodeLen(){ return maxLen; }
@@ -54,11 +63,16 @@ private:
     unordered_map<uint64_t, shared_ptr<SymNode>> symtab;
     shared_ptr<MinHeap<SymNode>> heap;
     shared_ptr<SymNode> root;
+    shared_ptr<SymNode> dummy;
     //unordered_map<uint64_t, vector<shared_ptr<SymNode>>> dectab;
     vector<shared_ptr<SymNode>> dectab;
+
+    array<shared_ptr<SymNode>, 256> dectab_0;
+    unordered_map<uint64_t, shared_ptr<array<shared_ptr<SymNode>, 256>>> dectabs;
+
     int numSymbols = 0;
     int numInserted = 0;
-    uint64_t maxLen = 0;
+    uint32_t maxLen = 0;
 };
 
 #endif //_CANONICAL_HUFFMAN_H_

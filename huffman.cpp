@@ -45,12 +45,12 @@ HuffCoder& HuffCoder::insert(shared_ptr<SymNode> node)
         }
 
         // TODO - multi-level decode table
+        #ifdef ONE_DECODE_TAB
         {
             for(auto pair : symtab){
                 shared_ptr<SymNode> node = pair.second;
-                shared_ptr<SymNode> decNode = make_shared<SymNode>(node->symbol, node->code << (maxLen - node->bits));
-                decNode->bits = node->bits;
-                heap->insert(decNode);
+                node->kval = node->code << (maxLen - node->bits);
+                heap->insert(node);
             }
             heap->makeHeap();
 
@@ -67,6 +67,58 @@ HuffCoder& HuffCoder::insert(shared_ptr<SymNode> node)
             for(uint64_t j = dec1->kval; j < (1 << maxLen); j++)
                 dectab.push_back(dec1);
         }
+        #else
+        //make maxLen multiple of 8
+        printf("setup multi-level decode table\n");
+        maxLen = ((maxLen+7)) & ~(0x7);
+        for(auto pair : symtab){
+            shared_ptr<SymNode> node = pair.second;
+            uint64_t bits = node->bits;
+            uint64_t code = node->code << (maxLen - node->bits);
+
+            uint64_t bits_ofs = 0;
+            uint64_t tab_idx, idx, code_idx;
+            while(bits > (bits_ofs+8)){
+                /*
+                 * Here the table index is built by INDEX_LEN + CODE_PREFIX
+                 * For pointer-based multi-level table, it doesn't have the problem
+                 * If code_prefix used as hash key, the problem is the value
+                 * e.g.: 0x000001 and 0x0001 has the same value, but means different prefix.
+                 * The cost is 8bit used for separating prefix space.
+                 * This makes the largest number of bits for each codeword is 56 not 64.
+                 */
+                tab_idx = code >> (maxLen - bits_ofs);
+                idx = (bits_ofs << 56) | tab_idx;
+                if(dectabs.find(idx) == dectabs.end()){
+                    dectabs[idx] = make_shared<array<shared_ptr<SymNode>,256>>();
+                    dectabs[idx]->fill(dummy);
+                }
+
+                code_idx = (code >> (maxLen - (bits_ofs+8))) & 0xFF;
+                (*dectabs[idx])[code_idx] = nullptr;
+                bits_ofs += 8;
+            }
+            tab_idx = code >> (maxLen - bits_ofs);
+            idx = (bits_ofs << 56) | tab_idx;
+            if(dectabs.find(idx) == dectabs.end()){
+                dectabs[idx] = make_shared<array<shared_ptr<SymNode>,256>>();
+                dectabs[idx]->fill(dummy);
+            }
+            code_idx = (code >> (maxLen - (bits_ofs+8))) & 0xFF;
+            (*dectabs[idx])[code_idx] = node;
+        }
+
+        for(auto pair : dectabs){
+            shared_ptr<array<shared_ptr<SymNode>,256>> tab = pair.second;
+            shared_ptr<SymNode> cur = (*tab)[0];
+            for(int i = 1; i <= 255; i++){
+                if((*tab)[i] == dummy)
+                    (*tab)[i] = cur;
+                else
+                    cur = (*tab)[i];
+            }
+        }
+        #endif
     }
 
     return *this;
@@ -106,7 +158,20 @@ HuffCoder& HuffCoder::decode(uint64_t &symbol, Bitchain &bc, bool dep = true)
     if(dep){
         uint64_t value, err;
         bc.getbits(maxLen, value, err);
-        shared_ptr<SymNode> node = dectab[value];
+        shared_ptr<SymNode> node = nullptr;
+        #ifdef ONE_DECODE_TAB
+        node = dectab[value];
+        #else
+        uint64_t bits_ofs = 0;
+        uint64_t tab_idx, idx, code_idx;
+        while(node == nullptr){
+            tab_idx = value >> (maxLen - bits_ofs);
+            idx = (bits_ofs << 56) | tab_idx;
+            code_idx = (value >> (maxLen - (bits_ofs+8))) & 0xFF;
+            node = (*dectabs[idx])[code_idx];
+            bits_ofs += 8;
+        }
+        #endif
         bc.skipbits(node->bits, err);
         symbol = node->symbol;
     }
