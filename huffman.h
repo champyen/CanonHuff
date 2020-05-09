@@ -57,7 +57,7 @@ public:
     HuffCoder& decode(uint64_t &, Bitchain &, bool);
     HuffCoder& getSymbol(uint64_t&, uint64_t, uint64_t &);
     HuffCoder& updateProb(bool enable) { update_prob = enable; return *this; }
-    HuffCoder& updateCodeTable();
+    HuffCoder& updateCodeTable(bool);
 private:
     void makeHuffCode(shared_ptr<SymNode>, uint64_t, uint64_t);
 

@@ -1,27 +1,29 @@
 #include <stdio.h>
 #include "huffman.h"
 
-HuffCoder& HuffCoder::updateCodeTable()
+HuffCoder& HuffCoder::updateCodeTable(bool isCanonical)
 {
-    for(auto pair : symtab){
-        shared_ptr<SymNode> node = pair.second;
-        heap->insert(node);
-    }
-    heap->makeHeap();
+    if(!isCanonical){
+        for(auto pair : symtab){
+            shared_ptr<SymNode> node = pair.second;
+            heap->insert(node);
+        }
+        heap->makeHeap();
 
-    int left = numSymbols;
-    while(left){
-        shared_ptr<SymNode> min0 = heap->getMin();
-        left = heap->pop(nullptr) - 1;
-        shared_ptr<SymNode> min1 = heap->getMin();
-        shared_ptr<SymNode> node = make_shared<SymNode>(~0UL, min0->kval + min1->kval, min0, min1);
-        if(left)
-            heap->pop(node);
-        else
-            heap->pop(nullptr);
-        root = node;
+        int left = numSymbols;
+        while(left){
+            shared_ptr<SymNode> min0 = heap->getMin();
+            left = heap->pop(nullptr) - 1;
+            shared_ptr<SymNode> min1 = heap->getMin();
+            shared_ptr<SymNode> node = make_shared<SymNode>(~0UL, min0->kval + min1->kval, min0, min1);
+            if(left)
+                heap->pop(node);
+            else
+                heap->pop(nullptr);
+            root = node;
+        }
+        makeHuffCode(root, 0, 0);
     }
-    makeHuffCode(root, 0, 0);
 
     // Canonical Code
     {
@@ -131,9 +133,11 @@ HuffCoder& HuffCoder::insert(shared_ptr<SymNode> node)
     symtab[node->symbol] = node;
     numInserted++;
 
+    /*
     if(numInserted == numSymbols){
         updateCodeTable();
     }
+    */
 
     return *this;
 }
@@ -219,7 +223,7 @@ int main(void)
     int numSym = rand()&0xFF;
     if(numSym < 2) numSym += 0x80;
     printf("total %d symbols\n", numSym);
-
+    bool canonical = false;
     HuffCoder hc(numSym);
 
     vector<shared_ptr<SymNode>> symlist;
@@ -229,6 +233,7 @@ int main(void)
         symlist.push_back(node);
         hc.insert(node);
     }
+    hc.updateCodeTable(canonical);
     printf("maximum length of code:%d\n", hc.getMaxCodeLen());
 
     for(int i = 0; i < numSym; i++){
