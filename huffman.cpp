@@ -1,124 +1,138 @@
 #include <stdio.h>
 #include "huffman.h"
 
-HuffCoder& HuffCoder::insert(shared_ptr<SymNode> node)
+HuffCoder& HuffCoder::updateCodeTable()
 {
-    symtab[node->symbol] = node;
-    heap->insert(node);
-    numInserted++;
+    for(auto pair : symtab){
+        shared_ptr<SymNode> node = pair.second;
+        heap->insert(node);
+    }
+    heap->makeHeap();
 
-    if(numInserted == numSymbols){
-        heap->makeHeap();
+    int left = numSymbols;
+    while(left){
+        shared_ptr<SymNode> min0 = heap->getMin();
+        left = heap->pop(nullptr) - 1;
+        shared_ptr<SymNode> min1 = heap->getMin();
+        shared_ptr<SymNode> node = make_shared<SymNode>(~0UL, min0->kval + min1->kval, min0, min1);
+        if(left)
+            heap->pop(node);
+        else
+            heap->pop(nullptr);
+        root = node;
+    }
+    makeHuffCode(root, 0, 0);
 
-        int left = numSymbols;
-        while(left){
-            shared_ptr<SymNode> min0 = heap->getMin();
-            left = heap->pop(nullptr) - 1;
-            shared_ptr<SymNode> min1 = heap->getMin();
-            shared_ptr<SymNode> node = make_shared<SymNode>(~0UL, min0->kval + min1->kval, min0, min1);
-            if(left)
-                heap->pop(node);
-            else
-                heap->pop(nullptr);
-            root = node;
-        }
-        makeHuffCode(root, 0, 0);
-
-        // Canonical Code
-        {
-            for(auto pair : symtab){
-                shared_ptr<SymNode> node = pair.second;
-                node->kval = node->bits;
-                heap->insert(node);
-            }
-            heap->makeHeap();
-
-            for(int i = 0, code = 0; i < numSymbols; i++){
-                shared_ptr<SymNode> node = heap->getMin();
-                int next_len = node->bits;
-                if(heap->pop(nullptr)){
-                    next_len = heap->getMin()->bits;
-                }
-                node->code = code;
-                code = (code+1) << (next_len - node->bits);
-            }
-        }
-
-        // TODO - multi-level decode table
-        #ifdef ONE_DECODE_TAB
-        {
-            for(auto pair : symtab){
-                shared_ptr<SymNode> node = pair.second;
-                node->kval = node->code << (maxLen - node->bits);
-                heap->insert(node);
-            }
-            heap->makeHeap();
-
-            shared_ptr<SymNode> dec0 = make_shared<SymNode>(0, 0);
-            shared_ptr<SymNode> dec1 = nullptr;
-            for(int i = 0; i < numSymbols; i++){
-                dec1 = heap->getMin();
-                heap->pop(nullptr);
-                for(uint64_t j = dec0->kval; j < dec1->kval; j++){
-                    dectab.push_back(dec0);
-                }
-                dec0 = dec1;
-            }
-            for(uint64_t j = dec1->kval; j < (1 << maxLen); j++)
-                dectab.push_back(dec1);
-        }
-        #else
-        //make maxLen multiple of 8
-        printf("setup multi-level decode table\n");
-        maxLen = ((maxLen+7)) & ~(0x7);
+    // Canonical Code
+    {
         for(auto pair : symtab){
             shared_ptr<SymNode> node = pair.second;
-            uint64_t bits = node->bits;
-            uint64_t code = node->code << (maxLen - node->bits);
+            node->kval = node->bits;
+            heap->insert(node);
+        }
+        heap->makeHeap();
 
-            uint64_t bits_ofs = 0;
-            uint64_t tab_idx, idx, code_idx;
-            while(bits > (bits_ofs+8)){
-                /*
-                 * Here the table index is built by INDEX_LEN + CODE_PREFIX
-                 * For pointer-based multi-level table, it doesn't have the problem
-                 * If code_prefix used as hash key, the problem is the value
-                 * e.g.: 0x000001 and 0x0001 has the same value, but means different prefix.
-                 * The cost is 8bit used for separating prefix space.
-                 * This makes the largest number of bits for each codeword is 56 not 64.
-                 */
-                tab_idx = code >> (maxLen - bits_ofs);
-                idx = (bits_ofs << 56) | tab_idx;
-                if(dectabs.find(idx) == dectabs.end()){
-                    dectabs[idx] = make_shared<array<shared_ptr<SymNode>,256>>();
-                    dectabs[idx]->fill(dummy);
-                }
-
-                code_idx = (code >> (maxLen - (bits_ofs+8))) & 0xFF;
-                (*dectabs[idx])[code_idx] = nullptr;
-                bits_ofs += 8;
+        for(int i = 0, code = 0; i < numSymbols; i++){
+            shared_ptr<SymNode> node = heap->getMin();
+            int next_len = node->bits;
+            if(heap->pop(nullptr)){
+                next_len = heap->getMin()->bits;
             }
+            node->code = code;
+            code = (code+1) << (next_len - node->bits);
+        }
+    }
+
+    // TODO - multi-level decode table
+    #ifdef ONE_DECODE_TAB
+    {
+        for(auto pair : symtab){
+            shared_ptr<SymNode> node = pair.second;
+            node->kval = node->code << (maxLen - node->bits);
+            heap->insert(node);
+        }
+        heap->makeHeap();
+
+        shared_ptr<SymNode> dec0 = make_shared<SymNode>(0, 0);
+        shared_ptr<SymNode> dec1 = nullptr;
+        for(int i = 0; i < numSymbols; i++){
+            dec1 = heap->getMin();
+            heap->pop(nullptr);
+            for(uint64_t j = dec0->kval; j < dec1->kval; j++){
+                dectab.push_back(dec0);
+            }
+            dec0 = dec1;
+        }
+        for(uint64_t j = dec1->kval; j < (1 << maxLen); j++)
+            dectab.push_back(dec1);
+    }
+    #else
+    //make maxLen multiple of 8
+    printf("setup multi-level decode table\n");
+    maxLen = ((maxLen+7)) & ~(0x7);
+    for(auto pair : symtab){
+        shared_ptr<SymNode> node = pair.second;
+        uint64_t bits = node->bits;
+        uint64_t code = node->code << (maxLen - node->bits);
+
+        uint64_t bits_ofs = 0;
+        uint64_t tab_idx, idx, code_idx;
+        while(bits > (bits_ofs+8)){
+            /*
+             * Here the table index is built by INDEX_LEN + CODE_PREFIX
+             * For pointer-based multi-level table, it doesn't have the problem
+             * If code_prefix used as hash key, the problem is the value
+             * e.g.: 0x000001 and 0x0001 has the same value, but means different prefix.
+             * The cost is 8bit used for separating prefix space.
+             * This makes the largest number of bits for each codeword is 56 not 64.
+             */
             tab_idx = code >> (maxLen - bits_ofs);
             idx = (bits_ofs << 56) | tab_idx;
             if(dectabs.find(idx) == dectabs.end()){
                 dectabs[idx] = make_shared<array<shared_ptr<SymNode>,256>>();
                 dectabs[idx]->fill(dummy);
             }
-            code_idx = (code >> (maxLen - (bits_ofs+8))) & 0xFF;
-            (*dectabs[idx])[code_idx] = node;
-        }
 
-        for(auto pair : dectabs){
-            shared_ptr<array<shared_ptr<SymNode>,256>> tab = pair.second;
-            shared_ptr<SymNode> cur = (*tab)[0];
-            for(int i = 1; i <= 255; i++){
-                if((*tab)[i] == dummy)
-                    (*tab)[i] = cur;
-                else
-                    cur = (*tab)[i];
-            }
+            code_idx = (code >> (maxLen - (bits_ofs+8))) & 0xFF;
+            (*dectabs[idx])[code_idx] = nullptr;
+            bits_ofs += 8;
         }
-        #endif
+        tab_idx = code >> (maxLen - bits_ofs);
+        idx = (bits_ofs << 56) | tab_idx;
+        if(dectabs.find(idx) == dectabs.end()){
+            dectabs[idx] = make_shared<array<shared_ptr<SymNode>,256>>();
+            dectabs[idx]->fill(dummy);
+        }
+        code_idx = (code >> (maxLen - (bits_ofs+8))) & 0xFF;
+        (*dectabs[idx])[code_idx] = node;
+    }
+
+    for(auto pair : dectabs){
+        shared_ptr<array<shared_ptr<SymNode>,256>> tab = pair.second;
+        shared_ptr<SymNode> cur = (*tab)[0];
+        for(int i = 1; i <= 255; i++){
+            if((*tab)[i] == dummy)
+                (*tab)[i] = cur;
+            else
+                cur = (*tab)[i];
+        }
+    }
+    #endif
+    for(auto pair : symtab){
+        shared_ptr<SymNode> node = pair.second;
+        node->kval = 0;
+    }
+    
+    return *this;
+}
+
+HuffCoder& HuffCoder::insert(shared_ptr<SymNode> node)
+{
+    symtab[node->symbol] = node;
+    numInserted++;
+
+    if(numInserted == numSymbols){
+        updateCodeTable();
     }
 
     return *this;
@@ -141,11 +155,13 @@ HuffCoder& HuffCoder::encode(uint64_t symbol, Bitchain &bc, bool dep = true)
     if(dep){
         shared_ptr<SymNode> node = symtab[symbol];
         bc.write(node->code, node->bits);
+        if(update_prob)
+            node->kval++;
     }
     return *this;
 }
 
-HuffCoder& HuffCoder::getVLC(uint64_t symbol, uint64_t &code, uint64_t &bits)
+HuffCoder& HuffCoder::getCode(uint64_t symbol, uint64_t &code, uint64_t &bits)
 {
     shared_ptr<SymNode> node = symtab[symbol];
     code = node->code;
@@ -174,6 +190,8 @@ HuffCoder& HuffCoder::decode(uint64_t &symbol, Bitchain &bc, bool dep = true)
         #endif
         bc.skipbits(node->bits, err);
         symbol = node->symbol;
+        if(update_prob)
+            node->kval++;
     }
     return *this;
 }
@@ -218,7 +236,7 @@ int main(void)
         printf("sym:%lu, freq:%lu, code:%016lX, bits:%lu\n", node->symbol, node->kval, node->code, node->bits);
     }
 
-#define TEST_SIZE   1024
+#define TEST_SIZE   10240
     uint64_t test_sym[TEST_SIZE];
     {
         Bitchain bc("test.bin", false);

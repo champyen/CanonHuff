@@ -53,10 +53,11 @@ public:
     uint32_t getMaxCodeLen(){ return maxLen; }
 
     HuffCoder& encode(uint64_t, Bitchain &, bool);
-    HuffCoder& getVLC(uint64_t, uint64_t &, uint64_t&);
+    HuffCoder& getCode(uint64_t, uint64_t &, uint64_t&);
     HuffCoder& decode(uint64_t &, Bitchain &, bool);
     HuffCoder& getSymbol(uint64_t&, uint64_t, uint64_t &);
-
+    HuffCoder& updateProb(bool enable) { update_prob = enable; return *this; }
+    HuffCoder& updateCodeTable();
 private:
     void makeHuffCode(shared_ptr<SymNode>, uint64_t, uint64_t);
 
@@ -70,6 +71,7 @@ private:
     array<shared_ptr<SymNode>, 256> dectab_0;
     unordered_map<uint64_t, shared_ptr<array<shared_ptr<SymNode>, 256>>> dectabs;
 
+    bool update_prob = false;
     int numSymbols = 0;
     int numInserted = 0;
     uint32_t maxLen = 0;
