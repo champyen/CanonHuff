@@ -30,6 +30,8 @@ HuffCoder& HuffCoder::updateCodeTable(bool isCanonical)
         for(auto pair : symtab){
             shared_ptr<SymNode> node = pair.second;
             node->kval = node->bits;
+            if(node->bits > maxLen)
+                maxLen = node->bits;
             heap->insert(node);
         }
         heap->makeHeap();
@@ -145,8 +147,6 @@ HuffCoder& HuffCoder::insert(shared_ptr<SymNode> node)
 void HuffCoder::makeHuffCode(shared_ptr<SymNode> node, uint64_t bits, uint64_t code)
 {
     if(node != nullptr){
-        if(bits > maxLen)
-            maxLen = bits;
         node->bits = bits;
         node->code = code;
         makeHuffCode(node->left, bits+1, code << 1 );
@@ -230,6 +230,7 @@ int main(void)
     for(int i = 0; i < numSym; i++){
         //printf("%d\n", i);
         shared_ptr<SymNode> node = make_shared<SymNode>(i, rand()&0xFFFF);
+        node->bits = 8;
         symlist.push_back(node);
         hc.insert(node);
     }
