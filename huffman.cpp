@@ -162,7 +162,6 @@ int main(void)
             hc.encode(test_sym[i], bc);
         }
         bc.write(0, hc.getMaxCodeLen());
-        bc.write_align();
     }
 
     {
