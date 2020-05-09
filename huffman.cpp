@@ -18,16 +18,38 @@ HuffCoder& HuffCoder::insert(shared_ptr<SymNode> node)
             shared_ptr<SymNode> node = make_shared<SymNode>(~0UL, min0->kval + min1->kval, min0, min1);
             if(left)
                 heap->pop(node);
+            else
+                heap->pop(nullptr);
             root = node;
         }
         makeHuffCode(root, 0, 0);
 
+        // Canonical Code
+        {
+            for(auto pair : symtab){
+                shared_ptr<SymNode> node = pair.second;
+                node->kval = node->bits;
+                heap->insert(node);
+            }
+            heap->makeHeap();
+
+            for(int i = 0, code = 0; i < numSymbols; i++){
+                shared_ptr<SymNode> node = heap->getMin();
+                int next_len = node->bits;
+                if(heap->pop(nullptr)){
+                    next_len = heap->getMin()->bits;
+                }
+                node->code = code;
+                code = (code+1) << (next_len - node->bits);
+            }
+        }
+
         // TODO - multi-level decode table
         {
-            heap = make_shared<MinHeap<SymNode>>(numSymbols);
-            for(int i = 0; i < numSymbols; i++){
-                shared_ptr<SymNode> decNode = make_shared<SymNode>(symtab[i]->symbol, symtab[i]->code << (maxLen - symtab[i]->bits));
-                decNode->bits = symtab[i]->bits;
+            for(auto pair : symtab){
+                shared_ptr<SymNode> node = pair.second;
+                shared_ptr<SymNode> decNode = make_shared<SymNode>(node->symbol, node->code << (maxLen - node->bits));
+                decNode->bits = node->bits;
                 heap->insert(decNode);
             }
             heap->makeHeap();
